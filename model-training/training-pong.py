@@ -7,9 +7,11 @@ BALL_R = 0.1 * ASPECT
 PADDLE_WIDTH = 0.1 * ASPECT
 PADDLE_HEIGHT = 3 * ASPECT
 VEL = 0.1 * ASPECT
+MAX_Y_VEL = 2 * ASPECT
 BALL_START_VEL = 0.04 * ASPECT
 
 FPS = 60
+
 
 class Ball():
     def __init__(self):
@@ -25,15 +27,15 @@ class Ball():
 
         if self.y < BALL_R:
             self.y = self.y * -1 + BALL_R
-            self.y_vel = self.y_vel * -1
+            self.y_vel *= -1
         
         elif self.y > HEIGHT - BALL_R:
             self.y = 2 * HEIGHT - self.y - BALL_R
-            self.y_vel = self.y_vel * -1
+            self.y_vel *= -1
 
         if self.x > WIDTH - BALL_R:
             self.x = 2 * WIDTH - self.x - BALL_R
-            self.x_vel = self.x_vel * -1
+            self.x_vel *= -1
             self.y_vel = random.randint(0, 10)
         
         elif self.x < BALL_R:
@@ -41,7 +43,11 @@ class Ball():
 
     def bounce(self, y_dif):
         self.y_vel = self.y_vel + y_dif
-        self.x_vel = self.x_vel * -1
+        if self.y_vel > MAX_Y_VEL:
+            self.y_vel = MAX_Y_VEL
+        if self.y_vel < -MAX_Y_VEL:
+            self.y_vel = -MAX_Y_VEL
+        self.x_vel *= -1
 
 
 class Paddle():
@@ -60,15 +66,20 @@ class Paddle():
         if self.y > HEIGHT - PADDLE_HEIGHT:
             self.y = HEIGHT - PADDLE_HEIGHT
 
-def handle_collision(ball: Ball, paddle: Paddle):
+def handle_collision(ball: Ball, paddle: Paddle) -> bool:
     if ball.x_vel < 0 and not ball.dead and ball.x <= paddle.x + PADDLE_WIDTH and ball.y >= paddle.y and ball.y <= paddle.y + PADDLE_HEIGHT:
         y_dif = paddle.y + PADDLE_HEIGHT // 2 - ball.y
         y_dif = HEIGHT // 2 // -y_dif 
         ball.bounce(y_dif)
+
+        return True
+
+    return False
         
 
 
 pygame.init()
+FONT = pygame.font.SysFont("comicsans", 40)
 win = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Pong training game")
 clock = pygame.time.Clock()
@@ -78,6 +89,7 @@ def gameLoop():
     running = True
     paddle = Paddle()
     ball = Ball()
+    score = 0
 
     while running:
 
@@ -98,17 +110,26 @@ def gameLoop():
         # Game
 
         ball.move()
-        handle_collision(ball, paddle)
+        is_increment = handle_collision(ball, paddle)
 
         pygame.draw.circle(win, "white", (ball.x, ball.y), BALL_R)
         pygame.draw.rect(win, "white", (paddle.x, paddle.y, PADDLE_WIDTH, PADDLE_HEIGHT))
 
-
         # Update screen
 
+        score_text = FONT.render(f"Score: {score}", 1, "white")
+        win.blit(score_text, (WIDTH - score_text.get_width() - 30, 1))
         pygame.display.flip()
 
         clock.tick(FPS)
+
+        if ball.dead:
+            running = False
+        
+        if is_increment:
+            score += 1
+            is_increment = False
+
 
     pygame.quit()
 
