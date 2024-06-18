@@ -1,16 +1,22 @@
 import pygame
 import random
+import os
+import neat
+import numpy as np
+import pickle
 
 ASPECT = 100
 WIDTH, HEIGHT = 8 * ASPECT, 6 * ASPECT
 BALL_R = 0.1 * ASPECT
 PADDLE_WIDTH = 0.1 * ASPECT
-PADDLE_HEIGHT = 3 * ASPECT
+PADDLE_HEIGHT = 0.5 * ASPECT
 VEL = 0.1 * ASPECT
 MAX_Y_VEL = 2 * ASPECT
+Y_DIFF_FACTOR = 15
 BALL_START_VEL = 0.04 * ASPECT
+MAX_BALLS_NUMBER = 3
 
-FPS = 60
+FPS = 300
 
 
 class Ball():
@@ -68,9 +74,9 @@ class Paddle():
 
 def handle_collision(ball: Ball, paddle: Paddle) -> bool:
     if ball.x_vel < 0 and not ball.dead and ball.x <= paddle.x + PADDLE_WIDTH and ball.y >= paddle.y and ball.y <= paddle.y + PADDLE_HEIGHT:
-        y_dif = paddle.y + PADDLE_HEIGHT // 2 - ball.y
-        y_dif = HEIGHT // 2 // -y_dif 
-        ball.bounce(y_dif)
+        y_dif = ball.y - (paddle.y + PADDLE_HEIGHT // 2)
+        y_dif = (y_dif / PADDLE_HEIGHT) * Y_DIFF_FACTOR
+        ball.bounce(round(y_dif))
 
         return True
 
@@ -78,41 +84,59 @@ def handle_collision(ball: Ball, paddle: Paddle) -> bool:
         
 
 
-pygame.init()
-FONT = pygame.font.SysFont("comicsans", 40)
-win = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Pong training game")
-clock = pygame.time.Clock()
 
-def gameLoop():
+def gameLoop(genome, config):
+    pygame.init()
+    FONT = pygame.font.SysFont("comicsans", 40)
+    win = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Pong training game")
+    clock = pygame.time.Clock()
+    ball_timeout = 0
+    max_balls = MAX_BALLS_NUMBER
 
     running = True
     paddle = Paddle()
-    ball = Ball()
+    balls = [Ball()]
+    max_balls -= 1
     score = 0
+
+    net = neat.nn.FeedForwardNetwork.create(genome, config)
 
     while running:
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                quit()
         
         keys = pygame.key.get_pressed()
         if keys[pygame.K_ESCAPE]:
             running = False
-        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            quit()
+        # if keys[pygame.K_UP] or keys[pygame.K_w]:
+        #     paddle.move("up")
+        # if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+        #     paddle.move("down")
+
+        nearest_ball_index = balls.index(min(balls, key=lambda x: x.x if x.x_vel < 0 else WIDTH))
+
+        output = net.activate((paddle.y + PADDLE_HEIGHT // 2, balls[nearest_ball_index].y, balls[nearest_ball_index].x, balls[nearest_ball_index].y_vel))
+
+        max_index = np.argmax(output)
+
+        if max_index == 0:
             paddle.move("up")
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+        elif max_index == 1:
             paddle.move("down")
 
         win.fill("black")
 
         # Game
-
-        ball.move()
-        is_increment = handle_collision(ball, paddle)
-
-        pygame.draw.circle(win, "white", (ball.x, ball.y), BALL_R)
+        for ball in balls:
+            ball.move()
+            is_increment = handle_collision(ball, paddle)
+            pygame.draw.circle(win, "white", (ball.x, ball.y), BALL_R)
+        
         pygame.draw.rect(win, "white", (paddle.x, paddle.y, PADDLE_WIDTH, PADDLE_HEIGHT))
 
         # Update screen
@@ -123,14 +147,46 @@ def gameLoop():
 
         clock.tick(FPS)
 
-        if ball.dead:
-            running = False
+        ball_timeout += 1
+
+        if max_balls > 0 and ball_timeout == FPS:
+            balls.append(Ball())
+            max_balls -= 1
+            ball_timeout = 0
+
+        for ball in balls:
+
+            if ball.dead:
+                running = False
+                genome.fitness -= 1
         
-        if is_increment:
-            score += 1
-            is_increment = False
+            if is_increment:
+                score += 1
+                genome.fitness += 1
+                is_increment = False
 
 
     pygame.quit()
 
-gameLoop()
+# NEAT setup
+
+local_dir = os.path.dirname(__file__)
+config_path = os.path.join(local_dir, "config-ff.txt")
+config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction, neat.DefaultSpeciesSet, neat.DefaultStagnation, config_path)
+
+# population = neat.Checkpointer.restore_checkpoint('neat-checkpoint-1')
+population = neat.Population(config)
+population.add_reporter(neat.StdOutReporter(True))
+stats = neat.StatisticsReporter()
+population.add_reporter(stats)
+# population.add_reporter(neat.Checkpointer(10))
+
+def run_all_genomes(genomes, config):
+
+    for (_genome_id, genome) in genomes:
+        genome.fitness = 0
+        gameLoop(genome, config)
+
+
+winner = population.run(run_all_genomes, 1500)
+pickle.dump(winner)
