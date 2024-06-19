@@ -1,0 +1,1 @@
+{"aspect": 100, "width": 8, "height": 6, "ballR": 0.1, "paddleWidth": 0.1, "paddleHeight": 0.5, "velocity": 0.1, "maxYVelocity": 2.0, "yDiffFactor": 15, "ballStartVelocity": 0.04, "maxBalls": 3}
