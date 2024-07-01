@@ -1,0 +1,7 @@
+name = "Pong Enemy AI"
+description = "This is where humanity's biggest enemy lives."
+packages = ["neat-python", "numpy"]
+
+[files]
+"./winner.pickle" = ""
+"./config-ff.txt" = ""

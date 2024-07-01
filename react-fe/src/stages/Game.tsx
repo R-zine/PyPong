@@ -4,6 +4,15 @@ import { Paddle } from "../components";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Ball } from "../components/Ball";
 
+declare global {
+  interface Window {
+    paddleMiddle: number;
+    nearstBallY: number;
+    nearstBallX: number;
+    nearstBallYVel: number;
+  }
+}
+
 const {
   aspect: pyAspect,
   ballR: pyBallR,
@@ -47,7 +56,7 @@ export function Game() {
   ]);
 
   const moveRef = useRef<"up" | "down" | null>(null);
-  const godMode = useRef(true);
+  const godMode = useRef(false);
 
   const handleKeydown = useCallback((e: KeyboardEvent) => {
     if (e.key === "ArrowUp" || e.key === "w") moveRef.current = "up";
@@ -66,6 +75,24 @@ export function Game() {
   }, []);
 
   useEffect(() => {
+    window.paddleMiddle = leftY.current + Math.round(PADDLE_HEIGHT / 2);
+    window.nearstBallY = balls.current[0].y;
+    window.nearstBallX = balls.current[0].x;
+    window.nearstBallYVel = balls.current[0].yVel;
+
+    if (frame % 10) document.getElementById("get-AI")?.click();
+
+    const AIResponse = document.querySelector("#genome-output")?.textContent;
+
+    if (AIResponse === "up") {
+      leftY.current -= VEL;
+      if (leftY.current < 0) leftY.current = 0;
+    } else if (AIResponse === "down") {
+      leftY.current += VEL;
+      if (leftY.current > HEIGHT - PADDLE_HEIGHT)
+        leftY.current = HEIGHT - PADDLE_HEIGHT;
+    }
+
     if (moveRef.current === "up") {
       rightY.current -= VEL;
       if (rightY.current < 0) rightY.current = 0;
@@ -92,7 +119,7 @@ export function Game() {
         newY = 2 * HEIGHT - newY - ballR;
       }
 
-      // handle collisions with player paddle
+      // handle collisions with the player paddle
       if (
         ball.x + ballR >= WIDTH - PADDLE_MARGIN - PADDLE_WIDTH &&
         ball.x <= WIDTH - PADDLE_MARGIN &&
@@ -101,6 +128,22 @@ export function Game() {
         ball.lastBounce + 1000 < Date.now()
       ) {
         const yDif = calculateY(ball.y, rightY.current);
+        newYVel = newYVel + yDif;
+        if (newYVel > maxYVelocity) newYVel = maxYVelocity;
+        else if (newYVel < -maxYVelocity) newYVel = -maxYVelocity;
+        newXVel *= -1;
+        newLastBounce = Date.now();
+      }
+
+      // handle collisions with the AI paddle
+      if (
+        ball.x >= PADDLE_MARGIN &&
+        ball.x <= PADDLE_MARGIN + PADDLE_WIDTH &&
+        ball.y - ballR >= leftY.current &&
+        ball.y <= leftY.current + PADDLE_HEIGHT &&
+        ball.lastBounce + 1000 < Date.now()
+      ) {
+        const yDif = calculateY(ball.y, leftY.current);
         newYVel = newYVel + yDif;
         if (newYVel > maxYVelocity) newYVel = maxYVelocity;
         else if (newYVel < -maxYVelocity) newYVel = -maxYVelocity;

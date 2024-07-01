@@ -1,8 +1,18 @@
 import "./App.css";
-import { Game } from "./stages/Game";
+import { Game, Intro, Upgrade } from "./stages";
+import { useStore } from "./store/store";
 
 function App() {
-  return <Game />;
+  const stage = useStore((state) => state.stage);
+  const setStage = useStore((state) => state.setStage);
+
+  return (
+    <>
+      {stage === "intro" && <Intro />}
+      {stage === "game" && <Game />}
+      {stage === "upgrade" && <Upgrade />}
+    </>
+  );
 }
 
 export default App;

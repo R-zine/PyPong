@@ -3,9 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script
+      type="module"
+      src="https://pyscript.net/releases/2024.1.1/core.js"
+    ></script>
     <title>Anti Pong by Ivan Radev</title>
   </head>
   <body>
+    <div class="pyscript">
+      <script
+        type="py"
+        src="./pyscript/main.py"
+        config="./pyscript/pyscript.toml"
+      ></script>
+      <div id="python-ready">0</div>
+      <div id="genome-output">3</div>
+      <button id="get-AI" py-click="activate_network">New direction</button>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
