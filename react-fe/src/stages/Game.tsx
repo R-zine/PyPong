@@ -3,6 +3,7 @@ import config from "../../../model-training/gameConfig.json";
 import { Paddle } from "../components";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Ball } from "../components/Ball";
+import { useStore } from "../store/store";
 
 declare global {
   interface Window {
@@ -18,7 +19,6 @@ const {
   ballR: pyBallR,
   ballStartVelocity: pyBallStartVel,
   height: pyHeight,
-  maxBalls,
   maxYVelocity,
   paddleHeight: pyPaddleHeight,
   paddleWidth: pyPaddleWidth,
@@ -34,17 +34,41 @@ const PADDLE_WIDTH = pyAspect * pyPaddleWidth;
 const PADDLE_HEIGHT = pyAspect * pyPaddleHeight * 3;
 const PADDLE_MARGIN = ballR * 2;
 const VEL = pyAspect * pyVelocity;
-const ballSrtartVel = pyAspect * pyBallStartVel;
+const ballSrtartVel = pyAspect * pyBallStartVel + 1;
 
-const calculateY = (ballY: number, paddleY: number): number => {
-  let yDif = ballY - (paddleY + Math.round(PADDLE_HEIGHT / 2));
-  return Math.round((yDif / PADDLE_HEIGHT) * yDiffFactor) * 2;
+const calculateY = (
+  ballY: number,
+  paddleY: number,
+  paddleHeight: number
+): number => {
+  let yDif = ballY - (paddleY + Math.round(paddleHeight / 2));
+  return Math.round((yDif / paddleHeight) * yDiffFactor) * 2;
 };
 
 export function Game() {
+  const setStage = useStore((state) => state.setStage);
+  const score = useStore((state) => state.score);
+  const incrementScore = useStore((state) => state.incrementScore);
+  const upgrades = useStore((state) => state.upgrades);
+
   const [frame, setFrame] = useState(0);
+
   const leftY = useRef(0);
   const rightY = useRef(0);
+
+  const paddleHeightAI = useRef(
+    Math.round(
+      PADDLE_HEIGHT /
+        (upgrades["Enemy Paddle"] === 0
+          ? 1
+          : upgrades["Enemy Paddle"] === 1
+          ? 1.5
+          : upgrades["Enemy Paddle"] === 2
+          ? 2
+          : 3)
+    )
+  );
+
   const balls = useRef([
     {
       x: Math.round(WIDTH / 3),
@@ -75,7 +99,8 @@ export function Game() {
   }, []);
 
   useEffect(() => {
-    window.paddleMiddle = leftY.current + Math.round(PADDLE_HEIGHT / 2);
+    window.paddleMiddle =
+      leftY.current + Math.round(paddleHeightAI.current / 2);
     window.nearstBallY = balls.current[0].y;
     window.nearstBallX = balls.current[0].x;
     window.nearstBallYVel = balls.current[0].yVel;
@@ -89,8 +114,8 @@ export function Game() {
       if (leftY.current < 0) leftY.current = 0;
     } else if (AIResponse === "down") {
       leftY.current += VEL;
-      if (leftY.current > HEIGHT - PADDLE_HEIGHT)
-        leftY.current = HEIGHT - PADDLE_HEIGHT;
+      if (leftY.current > HEIGHT - paddleHeightAI.current)
+        leftY.current = HEIGHT - paddleHeightAI.current;
     }
 
     if (moveRef.current === "up") {
@@ -127,23 +152,24 @@ export function Game() {
         ball.y <= rightY.current + PADDLE_HEIGHT &&
         ball.lastBounce + 1000 < Date.now()
       ) {
-        const yDif = calculateY(ball.y, rightY.current);
+        const yDif = calculateY(ball.y, rightY.current, PADDLE_HEIGHT);
         newYVel = newYVel + yDif;
         if (newYVel > maxYVelocity) newYVel = maxYVelocity;
         else if (newYVel < -maxYVelocity) newYVel = -maxYVelocity;
         newXVel *= -1;
         newLastBounce = Date.now();
+        incrementScore();
       }
 
       // handle collisions with the AI paddle
       if (
         ball.x >= PADDLE_MARGIN &&
         ball.x <= PADDLE_MARGIN + PADDLE_WIDTH &&
-        ball.y - ballR >= leftY.current &&
-        ball.y <= leftY.current + PADDLE_HEIGHT &&
+        ball.y + ballR >= leftY.current &&
+        ball.y <= leftY.current + paddleHeightAI.current &&
         ball.lastBounce + 1000 < Date.now()
       ) {
-        const yDif = calculateY(ball.y, leftY.current);
+        const yDif = calculateY(ball.y, leftY.current, paddleHeightAI.current);
         newYVel = newYVel + yDif;
         if (newYVel > maxYVelocity) newYVel = maxYVelocity;
         else if (newYVel < -maxYVelocity) newYVel = -maxYVelocity;
@@ -157,9 +183,10 @@ export function Game() {
           newXVel *= -1;
           newYVel = Math.round(Math.random() * 10);
         } else {
-          // handle loss
+          setStage("upgrade");
         }
       }
+
       balls.current[i] = {
         x: newX,
         y: newY,
@@ -171,42 +198,53 @@ export function Game() {
   }, [frame]);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        minWidth: "100vw",
-        minHeight: "100vh",
-        background: "black",
-        overflow: "hidden",
-      }}
-    >
+    <div className="centered-flex">
+      <div className="nes-table-responsive">
+        <table className="nes-table is-bordered is-dark">
+          <thead>
+            <tr>
+              <th>Total score: {score.total}</th>
+              <th>Current score: {score.current}</th>
+            </tr>
+          </thead>
+        </table>
+      </div>
       <div
         style={{
-          position: "relative",
-          border: "2px solid white",
-          width: `${WIDTH}px`,
-          height: `${HEIGHT}px`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minWidth: "100vw",
+          background: "black",
+          overflow: "hidden",
         }}
       >
-        <Paddle
-          name="left-paddle"
-          y={leftY.current}
-          width={PADDLE_WIDTH}
-          height={PADDLE_HEIGHT}
-          left={PADDLE_MARGIN}
-        />
-        {balls.current.map((ball, i) => (
-          <Ball key={i} x={ball.x} y={ball.y} r={ballR} />
-        ))}
-        <Paddle
-          name="right-paddle"
-          y={rightY.current}
-          width={PADDLE_WIDTH}
-          height={PADDLE_HEIGHT}
-          left={WIDTH - PADDLE_MARGIN - PADDLE_WIDTH}
-        />
+        <div
+          style={{
+            position: "relative",
+            border: "2px solid white",
+            width: `${WIDTH}px`,
+            height: `${HEIGHT}px`,
+          }}
+        >
+          <Paddle
+            name="left-paddle"
+            y={leftY.current}
+            width={PADDLE_WIDTH}
+            height={paddleHeightAI.current}
+            left={PADDLE_MARGIN}
+          />
+          {balls.current.map((ball, i) => (
+            <Ball key={i} x={ball.x} y={ball.y} r={ballR} />
+          ))}
+          <Paddle
+            name="right-paddle"
+            y={rightY.current}
+            width={PADDLE_WIDTH}
+            height={PADDLE_HEIGHT}
+            left={WIDTH - PADDLE_MARGIN - PADDLE_WIDTH}
+          />
+        </div>
       </div>
     </div>
   );
