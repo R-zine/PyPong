@@ -19,7 +19,26 @@ export const useStore = create<IStore>((set, get) => ({
   score: { current: 10000, total: 0 },
   incrementScore: () =>
     set((state) => ({
-      score: { current: state.score.current + 1, total: state.score.total + 1 },
+      score: {
+        current:
+          state.score.current +
+          (!state.upgrades["Score Multiplier"]
+            ? 1
+            : state.upgrades["Score Multiplier"] === 1
+            ? 2
+            : state.upgrades["Score Multiplier"] === 2
+            ? 5
+            : 10),
+        total:
+          state.score.total +
+          (!state.upgrades["Score Multiplier"]
+            ? 1
+            : state.upgrades["Score Multiplier"] === 1
+            ? 2
+            : state.upgrades["Score Multiplier"] === 2
+            ? 5
+            : 10),
+      },
     })),
   progress: {
     total: Object.keys(Upgrades).reduce(

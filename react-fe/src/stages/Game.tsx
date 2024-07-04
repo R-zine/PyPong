@@ -69,6 +69,21 @@ export function Game() {
     )
   );
 
+  const paddleHeightPlayer = useRef(
+    Math.round(
+      PADDLE_HEIGHT *
+        (upgrades["Your Paddle"] === 0
+          ? 1
+          : upgrades["Your Paddle"] === 1
+          ? 1.25
+          : upgrades["Your Paddle"] === 2
+          ? 1.75
+          : 2.2)
+    )
+  );
+
+  const lives = useRef(upgrades["Balls And Lives"] + 1);
+
   const balls = useRef([
     {
       x: Math.round(WIDTH / 3),
@@ -76,16 +91,19 @@ export function Game() {
       xVel: ballSrtartVel,
       yVel: 0.1 * pyAspect,
       lastBounce: Date.now(),
+      isDead: false,
     },
   ]);
 
   const moveRef = useRef<"up" | "down" | null>(null);
   const godMode = useRef(false);
+  const cripple = useRef(false);
 
   const handleKeydown = useCallback((e: KeyboardEvent) => {
     if (e.key === "ArrowUp" || e.key === "w") moveRef.current = "up";
     else if (e.key === "ArrowDown" || e.key === "s") moveRef.current = "down";
     else if (e.key === "Backspace") godMode.current = !godMode.current;
+    else if (e.key === "=") cripple.current = !cripple.current;
   }, []);
 
   useEffect(() => {
@@ -101,9 +119,29 @@ export function Game() {
   useEffect(() => {
     window.paddleMiddle =
       leftY.current + Math.round(paddleHeightAI.current / 2);
-    window.nearstBallY = balls.current[0].y;
-    window.nearstBallX = balls.current[0].x;
-    window.nearstBallYVel = balls.current[0].yVel;
+
+    let nearestBall = balls.current.reduce((best, ball, i) => {
+      if (!i) return ball;
+      if (ball.xVel < 0) {
+        if (best.xVel > 0 || best.x > ball.x) return ball;
+      }
+      return best;
+    }, balls.current[0]);
+
+    if (nearestBall.xVel > 0) {
+      nearestBall = {
+        x: WIDTH,
+        y: HEIGHT / 2,
+        xVel: ballSrtartVel,
+        yVel: 0.1 * pyAspect,
+        lastBounce: Date.now(),
+        isDead: false,
+      };
+    }
+
+    window.nearstBallY = nearestBall.y;
+    window.nearstBallX = nearestBall.x;
+    window.nearstBallYVel = nearestBall.yVel;
 
     if (frame % 10) document.getElementById("get-AI")?.click();
 
@@ -124,10 +162,27 @@ export function Game() {
       moveRef.current = null;
     } else if (moveRef.current === "down") {
       rightY.current += VEL;
-      if (rightY.current > HEIGHT - PADDLE_HEIGHT)
-        rightY.current = HEIGHT - PADDLE_HEIGHT;
+      if (rightY.current > HEIGHT - paddleHeightPlayer.current)
+        rightY.current = HEIGHT - paddleHeightPlayer.current;
       moveRef.current = null;
     }
+
+    const totalBallsToAdd = upgrades["Balls And Lives"];
+
+    if (
+      totalBallsToAdd &&
+      !(frame % 120) &&
+      !!frame &&
+      frame / 120 <= totalBallsToAdd
+    )
+      balls.current.push({
+        x: Math.round(WIDTH / 3),
+        y: 0,
+        xVel: ballSrtartVel,
+        yVel: 0.1 * pyAspect,
+        lastBounce: Date.now(),
+        isDead: false,
+      });
 
     balls.current.forEach((ball, i) => {
       let newX = ball.x + ball.xVel;
@@ -149,20 +204,39 @@ export function Game() {
         ball.x + ballR >= WIDTH - PADDLE_MARGIN - PADDLE_WIDTH &&
         ball.x <= WIDTH - PADDLE_MARGIN &&
         ball.y - ballR >= rightY.current &&
-        ball.y <= rightY.current + PADDLE_HEIGHT &&
+        ball.y <= rightY.current + paddleHeightPlayer.current &&
         ball.lastBounce + 1000 < Date.now()
       ) {
-        const yDif = calculateY(ball.y, rightY.current, PADDLE_HEIGHT);
+        const yDif = calculateY(
+          ball.y,
+          rightY.current,
+          paddleHeightPlayer.current
+        );
         newYVel = newYVel + yDif;
         if (newYVel > maxYVelocity) newYVel = maxYVelocity;
         else if (newYVel < -maxYVelocity) newYVel = -maxYVelocity;
         newXVel *= -1;
         newLastBounce = Date.now();
         incrementScore();
+
+        if (upgrades.ballcalypse) {
+          balls.current = [
+            ...balls.current,
+            ...Array.from({ length: 100 }, (_x) => ({
+              x: WIDTH - PADDLE_MARGIN - PADDLE_WIDTH - 10,
+              y: rightY.current + paddleHeightPlayer.current / 2,
+              xVel: -ballSrtartVel * Math.random() - 0.01,
+              yVel: 0.1 * pyAspect * (Math.random() - 0.49),
+              lastBounce: Date.now(),
+              isDead: false,
+            })),
+          ];
+        }
       }
 
       // handle collisions with the AI paddle
       if (
+        !cripple.current &&
         ball.x >= PADDLE_MARGIN &&
         ball.x <= PADDLE_MARGIN + PADDLE_WIDTH &&
         ball.y + ballR >= leftY.current &&
@@ -183,7 +257,9 @@ export function Game() {
           newXVel *= -1;
           newYVel = Math.round(Math.random() * 10);
         } else {
-          setStage("upgrade");
+          if (lives.current > 0) {
+            balls.current[i] = { ...balls.current[i], isDead: true };
+          } else setStage("upgrade");
         }
       }
 
@@ -193,8 +269,14 @@ export function Game() {
         xVel: newXVel,
         yVel: newYVel,
         lastBounce: newLastBounce,
+        isDead: balls.current[i].isDead,
       };
     });
+
+    lives.current = balls.current.reduce(
+      (livingBalls, ball) => (!ball.isDead ? livingBalls + 1 : livingBalls),
+      0
+    );
   }, [frame]);
 
   return (
@@ -234,17 +316,39 @@ export function Game() {
             height={paddleHeightAI.current}
             left={PADDLE_MARGIN}
           />
-          {balls.current.map((ball, i) => (
-            <Ball key={i} x={ball.x} y={ball.y} r={ballR} />
-          ))}
+          {balls.current.map((ball, i) =>
+            ball.isDead ? null : (
+              <Ball key={i} x={ball.x} y={ball.y} r={ballR} />
+            )
+          )}
           <Paddle
             name="right-paddle"
             y={rightY.current}
             width={PADDLE_WIDTH}
-            height={PADDLE_HEIGHT}
+            height={paddleHeightPlayer.current}
             left={WIDTH - PADDLE_MARGIN - PADDLE_WIDTH}
           />
         </div>
+      </div>
+      <div
+        style={{ minHeight: 48, flexDirection: "row", marginTop: 16 }}
+        className="centered-flex"
+      >
+        Lives:{" "}
+        {Array.from("H".repeat(upgrades["Balls And Lives"] + 1)).map(
+          (_life, i) => (
+            <i
+              style={{
+                filter: "grayscale(100%) brightness(350%)",
+                transform: "scale(2) translateY(-8px)",
+                marginLeft: 16,
+              }}
+              className={`nes-icon is-small heart ${
+                i < lives.current ? "" : "is-empty"
+              }`}
+            ></i>
+          )
+        )}
       </div>
     </div>
   );
