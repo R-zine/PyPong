@@ -8,3 +8,7 @@
 .nes-badge {
   min-width: 250px !important;
 }
+
+.header-icon:hover {
+  filter: brightness(100%) grayscale(100%) !important;
+}

@@ -16,7 +16,7 @@ interface IStore {
 export const useStore = create<IStore>((set, get) => ({
   stage: "intro",
   setStage: (newStage: IStore["stage"]) => set({ stage: newStage }),
-  score: { current: 10000, total: 0 },
+  score: { current: 0, total: 0 },
   incrementScore: () =>
     set((state) => ({
       score: {

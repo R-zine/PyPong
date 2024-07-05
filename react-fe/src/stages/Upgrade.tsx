@@ -25,7 +25,7 @@ export const Upgrade = () => {
         )}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
           {Object.keys(Upgrades).map((upgrade) => (
-            <UpgradeCard type={upgrade} />
+            <UpgradeCard key={upgrade} type={upgrade} />
           ))}
           <div
             style={{ background: "white", color: "black", marginBottom: 8 }}

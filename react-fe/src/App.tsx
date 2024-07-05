@@ -24,7 +24,7 @@ function App() {
           padding: "4px 16px",
         }}
       >
-        <div style={{ margin: 16 }} className="nes-text">
+        <div style={{ margin: 16 }} className="nes-text title-text">
           Anti-Pong <span style={{ fontSize: 10 }}>by Ivan Radev</span>
         </div>
         <div
@@ -32,7 +32,7 @@ function App() {
           style={{ flexDirection: "row", gap: 32 }}
         >
           <div
-            className="nes-btn"
+            className="nes-btn tools-button"
             onClick={() => {
               if (dialogRef.current) dialogRef.current.showModal();
             }}
@@ -42,13 +42,13 @@ function App() {
           <a href="https://github.com/R-zine" target="_blank">
             <i
               style={{ filter: "grayscale(100%) invert(100%) brightness(70%)" }}
-              className="nes-icon github is-medium"
+              className="nes-icon github is-medium header-icon"
             ></i>
           </a>
           <a href="https://www.linkedin.com/in/ivan-radev/" target="_blank">
             <i
               style={{ filter: "grayscale(100%) invert(100%)" }}
-              className="nes-icon linkedin is-medium"
+              className="nes-icon linkedin is-medium header-icon"
             ></i>
           </a>
           <dialog

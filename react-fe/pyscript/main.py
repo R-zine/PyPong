@@ -3,7 +3,6 @@ import neat
 from pyscript import window
 import numpy
 from pyweb import pydom
-import time
 
 winner = None
 
