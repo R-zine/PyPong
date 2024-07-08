@@ -25,7 +25,7 @@ function App() {
         }}
       >
         <div style={{ margin: 16 }} className="nes-text title-text">
-          Anti-Pong <span style={{ fontSize: 10 }}>by Ivan Radev</span>
+          Unfair Pong <span style={{ fontSize: 10 }}>by Ivan Radev</span>
         </div>
         <div
           className="centered-flex"

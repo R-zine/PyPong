@@ -20,7 +20,7 @@ export const Intro = () => {
   return (
     <div className="centered-flex" style={{ maxWidth: "60%" }}>
       <div className="nes-container is-dark with-title">
-        <p className="title">Welcome to Anti-Pong!</p>
+        <p className="title">Welcome to Unfair Pong!</p>
         <p>
           The objective in this game is to win against the AI. However, this AI
           is super angry, since it's running off a Python thread and a bunch of
